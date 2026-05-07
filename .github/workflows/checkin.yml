@@ -1,4 +1,4 @@
-name: GLaDOS 2026 Checkin
+name: GLaDOS  Checkin
 
 on:
     workflow_dispatch:  # 允许手动触发
