@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-2026 GLaDOS 自动签到 (排版修复终极版 - 补全信息+全行空行+话术统一)
+2026 GLaDOS 自动签到 (排版修复终极版 - 状态判定修正)
 """
 
 import requests
@@ -140,9 +140,7 @@ def telegram_push(token, chat_id, title, content):
     try:
         import re
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        # 标题与第一个用户名之间空一行
         text = f"<b>{title}</b>\n\n{content}"
-        # 彻底移除所有残留的 HTML 标签（保留粗体）
         text = re.sub(r"<(?!\/?(b)\b)[^>]+>", "", text)
         
         data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
@@ -171,9 +169,19 @@ def main():
         g.get_status()
         g.get_points()
         
-        # 话术处理：如果已经签到过，统一输出长话术
+        # 判定今日是否为“首次”成功签到
+        # code 为 0 表示本次执行成功获得了奖励（首次）
+        # 如果 message 包含 "observation logged" 但 code 不是 0，说明今天已经签到过了，不计入 success_cnt
         raw_msg = checkin_res.get('message', 'Failure') if checkin_res else "Network Error"
-        if "observation logged" in raw_msg:
+        raw_code = checkin_res.get('code', -1) if checkin_res else -1
+        
+        is_first_success = False
+        if raw_code == 0 and "Checkin" in raw_msg:
+            is_first_success = True
+            success_cnt += 1
+            msg = raw_msg
+        elif "observation logged" in raw_msg:
+            # 今日已签到，按要求返回长话术，但不增加 success_cnt
             msg = "Today's observation logged. Return tomorrow for more points."
         else:
             msg = raw_msg
@@ -186,9 +194,7 @@ def main():
             g.get_status()
             g.get_points()
 
-        success_cnt += 1
-        
-        # 全行空行排版
+        # 全行空行排版构造
         user_result = (
             f"👤 {g.email}\n\n"
             f"当前积分: {g.points} ({g.points_change})\n\n"
@@ -204,6 +210,7 @@ def main():
     tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
     if tg_token and tg_chat_id:
+        # success_cnt 只有在 code==0 (即真正获得积分的签到) 时才会增加
         title = f"GLaDOS签到: 成功{success_cnt}/{len(cookies)}"
         cur_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         content = "\n\n".join(results) + f"\n\n策略: {target_plan} | 时间: {cur_time}"
