@@ -124,7 +124,7 @@ koa:sess=eyJ1c2VySWQiOjEyMzQ1Njc4OTB9; koa:sess.sig=abcdef123456
 
 1. 进入你 Fork 仓库的 **Actions** 标签页
 2. 如果看到黄色提示，点击 **I understand my workflows, go ahead and enable them**
-3. 点击左侧的 **GLaDOS 2026 Checkin**
+3. 点击左侧的 **GLaDOS  Checkin**
 4. 点击右侧 **Run workflow** 按钮手动测试一次
 
 ![启用 Actions](images/workflow.png)
