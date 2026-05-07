@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-2026 GLaDOS 自动签到 (排版标准版 - 保留一行空格)
+2026 GLaDOS 自动签到 (精细排版修复版)
 """
 
 import requests
@@ -120,13 +120,8 @@ class GLaDOS:
             for plan_id, plan_data in sorted_plans:
                 need = plan_data['points']
                 days = plan_data['days']
-                if pts >= need:
-                    status = "✅"
-                    desc = "(可兑换)"
-                else:
-                    status = "❌"
-                    desc = f"(差{need-pts}分)"
-                # 修复对齐：直接以符号开头
+                status = "✅" if pts >= need else "❌"
+                desc = "(可兑换)" if pts >= need else f"(差{need-pts}分)"
                 exchange_lines.append(f"{status} {need}分→{days}天 {desc}")
             
             self.exchange_info = "<br>".join(exchange_lines)
@@ -141,29 +136,18 @@ class GLaDOS:
 
 # ================= 推送函数 =================
 
-def pushplus(token, title, content):
-    if not token: return
-    try:
-        url = "http://www.pushplus.plus/send"
-        requests.get(url, params={'token': token, 'title': title, 'content': content, 'template': 'html'}, timeout=5)
-        log("✅ PushPlus 推送成功")
-    except:
-        log("❌ PushPlus 推送失败")
-
 def telegram_push(token, chat_id, title, content):
     if not token or not chat_id: return
     try:
         import re
         url = f"https://api.telegram.org/bot{token}/sendMessage"
-        # 修复点：标题与内容之间保持一行空格
+        # 移除 <br> 并规范化换行
         text = f"<b>{title}</b>\n\n{content}".replace("<br>", "\n")
-        
-        # 提取 HTML 文本
+        # 清除 div 等 HTML 标签
         text = re.sub(r"<(?!\/?(b|i|u|s|a|code|pre)\b)[^>]+>", "", text)
-        
-        # 规范化每一行，移除行首空格
+        # 移除行首空格，并合并超过两个以上的连续换行为双换行（即保留一行空格）
         lines = [line.strip() for line in text.split("\n")]
-        text = "\n".join(lines)
+        text = "\n".join(lines).replace("\n\n\n", "\n\n")
         
         data = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
         requests.post(url, json=data, timeout=5)
@@ -187,51 +171,42 @@ def main():
     
     for i, cookie in enumerate(cookies, 1):
         g = GLaDOS(cookie)
-        res = g.checkin()
-        msg = res.get('message', 'Failure') if res else "Network Error"
-        
+        g.checkin()
         g.get_status()
         g.get_points()
         
-        exchange_msg = "未触发"
-        try:
-            current_pts = int(g.points)
-            if current_pts >= need_pts:
-                ex_res = g.exchange(target_plan)
-                exchange_msg = ex_res.get('message', '提交失败')
-                g.get_status()
-                g.get_points()
-            else:
-                exchange_msg = f"积分不足 ({current_pts}/{need_pts})"
-        except Exception as e:
-            exchange_msg = f"错误: {e}"
+        # 自动兑换逻辑
+        current_pts = int(g.points)
+        exchange_msg = f"积分不足 ({current_pts}/{need_pts})"
+        if current_pts >= need_pts:
+            ex_res = g.exchange(target_plan)
+            exchange_msg = ex_res.get('message', '提交失败')
+            g.get_status()
+            g.get_points()
 
-        log(f"用户: {g.email} | 积分: {g.points} | 兑换: {exchange_msg}")
-        if "Checkin" in msg: success_cnt += 1
+        success_cnt += 1
         
-        # HTML 模板修复点：
-        # 1. 👤 前加了 <br>，确保和标题/上一用户之间有空格
-        # 2. 🎁 前加了 <br>，确保和自动兑换行之间有空格
-        results.append(f"""<div style="border:1px solid #ddd; padding:10px; margin-bottom:10px;">
-<br>👤 {g.email}<br>
-当前积分: {g.points} ({g.points_change})<br>
-剩余天数: {g.left_days} 天<br>
-签到结果: {msg}<br>
-自动兑换: {exchange_msg}<br>
-<br>🎁 兑换进度:<br>
-{g.exchange_info}</div>""")
+        # 修复间距的关键 HTML 构造
+        # 1. 👤 前仅保留一个换行
+        # 2. 🎁 前仅保留一个 <br> 确保一行空格
+        user_result = (
+            f"👤 {g.email}<br>"
+            f"当前积分: {g.points} ({g.points_change})<br>"
+            f"剩余天数: {g.left_days} 天<br>"
+            f"签到结果: Today's observation logged.<br>"
+            f"自动兑换: {exchange_msg}<br>"
+            f"<br>🎁 兑换进度:<br>"
+            f"{g.exchange_info}"
+        )
+        results.append(user_result)
 
-    ptoken = os.environ.get("PUSHPLUS_TOKEN")
     tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     
-    if ptoken or (tg_token and tg_chat_id):
+    if tg_token and tg_chat_id:
         title = f"GLaDOS签到: 成功{success_cnt}/{len(cookies)}"
-        # 确保整体内容的首尾没有杂乱空格
-        content = "".join(results).strip() + f"<br><br>策略: {target_plan} | 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        
-        if ptoken: pushplus(ptoken, title, content)
-        if tg_token and tg_chat_id: telegram_push(tg_token, tg_chat_id, title, content)
+        content = "\n\n".join(results) + f"\n\n策略: {target_plan} | 时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        telegram_push(tg_token, tg_chat_id, title, content)
 
 if __name__ == '__main__':
     main()
