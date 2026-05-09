@@ -32,7 +32,7 @@ HEADERS = {
     'X-Requested-With': 'XMLHttpRequest',
 }
 
-DEBUG = os.environ.get("GLADOS_DEBUG", "1") == "1"
+DEBUG = os.environ.get("GLADOS_DEBUG", "0") == "1"
 
 # ================= 工具函数 =================
 
