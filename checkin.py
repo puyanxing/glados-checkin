@@ -18,8 +18,8 @@ if sys.platform.startswith('win'):
 # ================= 配置 =================
 
 DOMAINS = [
-    "https://glados.cloud",
     "https://railgun.info",
+    "https://glados.cloud",
     "https://glados.rocks",
     "https://glados.network",
 ]
@@ -43,7 +43,7 @@ def extract_cookie(raw: str):
         return raw
     if raw.startswith('{'):
         try:
-            return 'koa.sess=' + json.loads(raw).get('token')
+            return 'koa:sess=' + json.loads(raw).get('token')
         except: pass
     if raw.count('.') == 2 and '=' not in raw and len(raw) > 50:
         return 'koa:sess=' + raw
@@ -128,7 +128,7 @@ class GLaDOS:
         return False
 
     def checkin(self):
-        return self.req('POST', '/api/user/checkin', {'token': 'glados.cloud'})
+        return self.req('POST', '/api/user/checkin', {'token': 'railgun.info'})
 
     def exchange(self, plan):
         return self.req('POST', '/api/user/exchange', {'planType': plan})
