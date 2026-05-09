@@ -19,6 +19,9 @@ if sys.platform.startswith('win'):
 
 DOMAINS = [
     "https://railgun.info",
+    "https://glados.cloud",
+    "https://glados.rocks",
+    "https://glados.network",
 ]
 
 HEADERS = {
@@ -354,7 +357,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()    success_cnt = 0
+    main()
     
     for cookie in cookies:
         g = GLaDOS(cookie)
